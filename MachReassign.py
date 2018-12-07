@@ -312,17 +312,24 @@ class Assignment:
 ###################################BEGINNINGPART3###################
 #November 12,2018
 
+
     def localSearch(self):
-      for i in range(self.numProcesses):
-        for j in range(i, self.numProcesses):
-          if not self.machineJobAssignedTo(i) == self.machineJobAssignedTo(j):
-            first = self.assignmentCost()
-            self.swapProcesses(i,j)
-            second = self.assignmentCost()
-            if first < second: #if this didn't improve the cost, switch back
+      best = math.inf
+      newbest = best - 1
+      while(newbest < best):
+        best = self.assignmentCost()
+        for i in range(self.numProcesses):
+          for j in range(i, self.numProcesses):
+            if not self.machineJobAssignedTo(i) == self.machineJobAssignedTo(j):
+              first = self.assignmentCost()
               self.swapProcesses(i,j)
-            if not self.isFeasible():
-              self.swapProcesses(i,j)
+              second = self.assignmentCost()
+              if first < second: #if this didn't improve the cost, switch back
+                self.swapProcesses(i,j)
+              if not self.isFeasible():
+                self.swapProcesses(i,j)
+        newbest = self.assignmentCost()
+                
       return self.currentAssignment
     
     def uphillLocalSearch(self):
