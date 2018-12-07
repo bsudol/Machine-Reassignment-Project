@@ -371,6 +371,219 @@ class Assignment:
     
 ###################################PART3END#########################
 ###################################PART3END#########################
+#################################PART4BEGIN#########################
+#################################PART4BEGIN#########################
+
+
+    def infeasibleSearch(self):
+      self.localSearch() #Start with a Local Search to Find the Locally Optimal Solution
+      tried = [] #Will Keep a List of Tried Swaps
+      best = self.assignmentCost() #Current Cost of Best Feasible Solution
+      real = self.currentAssignment #Current Best Feasible Solution
+      for i in range(15):
+        
+        a = self.findBestSwap(tried) #Find Best Infeasible Swap of What We Haven't Tried
+        
+        if a == [-1,-1]: #If No Swap Gives Better Solution: Break
+          break
+          
+        tried.append(a) # Add this Swap to the List of Tried Swaps 
+        
+        self.swapProcesses(a[0],a[1]) # Swap the Processes for the Test
+        
+        count = 0 #Initialize a Counter
+        b = self.showInfeasible() # Show Where the Infeasibility Is
+        reall = real
+        bestt = best
+        
+        while b[0] > 0 and count < 20: # While This is Still Infeasible and We Haven't Tried More than n Times
+          
+          count = count + 1
+          something = False
+          if b[0] == 1: #If Infeasible Based on Capacity
+            for j in range(self.numProcesses): 
+              if self.machineJobAssignedTo(j) == b[1]: #If the Process is from the Infeasible Machine
+                for m in range(self.numMachines): # Try Moving Process to Every other Machine
+                  
+                  self.moveProcess(j,m)
+                  
+                  l = True
+                  for r in range(self.numResources): #Loop to check if we fixed the problem
+                    if self.capacities[b[1]][r] < self.resourceUsedOnMachine(i,r,self.currentAssignment):
+                      l = False
+                      
+                  boo = True
+                  d = self.CheckSpread()
+                  e = self.CheckDepend()
+                  f = self.CheckTransience()
+                  if not d[0]:
+                    boo = False
+                  if not e[0]:
+                    boo = False
+                  if not f[0]:
+                    boo = False
+                    
+                  if self.singleFeasibility(j,m) and self.assignmentCost() < best and l and boo: #If the single swap is feasible for capacity and conflict and we lower the assignment cost and our swap fixes the original problem and the whole assignment is still feasible for the rest of the conditions, store the swap
+                    reall = self.currentAssignment #Update Best Feasible Solution and cost
+                    bestt = self.assignmentCost()
+                    something = True   #mark that something happened
+                  self.moveProcess(j,b[1])
+                  
+          else: #Infeasibility based on conflict: Try moving each of the conflicting process to any of the other machines
+            for m in [x for x in range(self.numMachines) if x != self.machineJobAssignedTo(b[1])]: #Loop over every machine except one currently assigned to
+              self.moveProcess(b[1],m)
+                
+              boo = True
+              d = self.CheckSpread()
+              e = self.CheckDepend()
+              f = self.CheckTransience()
+              if not d[0]:
+                boo = False
+              if not e[0]:
+                boo = False
+              if not f[0]:
+                boo = False  
+            
+              if self.singleFeasibility(b[1],m) and self.assignmentCost() < best and boo: #If the single swap is feasible for capacity and conflict and we lower the assignment cost and our swap fixes the original problem and the whole assignment is still feasible for the rest of the conditions, store the swap
+                reall = self.currentAssignment #Update Best Solution and cost
+                bestt = self.assignmentCost()
+                something = True   #mark that something happened
+              self.moveProcess(b[1],self.machineJobAssignedTo(b[2]))
+                               
+              ##
+              
+              self.moveProcess(b[2],m)
+                
+              boo = True
+              d = self.CheckSpread()
+              e = self.CheckDepend()
+              f = self.CheckTransience()
+              if not d[0]:
+                boo = False
+              if not e[0]:
+                boo = False
+              if not f[0]:
+                boo = False  
+            
+              if self.singleFeasibility(b[2],m) and self.assignmentCost() < best and boo: #If the single swap is feasible for capacity and conflict and we lower the assignment cost and our swap fixes the original problem and the whole assignment is still feasible for the rest of the conditions, store the swap
+                reall = self.currentAssignment #Update Best Solution and cost
+                bestt = self.assignmentCost()
+                something = True   #mark that something happened
+              self.moveProcess(b[2],self.machineJobAssignedTo(b[1]))
+                               
+                          
+              
+          if not something: #If nothing happened that mean that the current problem being worked on can't be fixed and therefore we shouldn't continue
+            count = 20
+          
+          b = self.showInfeasible() #update with the next infeasibility
+        ##
+                               
+        self.currentAssignment = reall
+                                                     
+        if self.isFeasible():
+          real = reall
+          best = bestt 
+        else:
+          self.currentAssignment = real                     
+                               
+                               
+                               
+                               
+    def singleFeasibility(self,j,m): #Check to see if a single process and single machine is clear for capacity and conflict
+      
+      for r in range(self.numResources): #Check to see if machine moved to still follows capacity constraints
+        if self.capacities[m][r] < self.resourceUsedOnMachine(m,r,self.currentAssignment):
+          return False
+      
+      for s in range(self.numServices): #Check to make sure the process doesn't violate conflict 
+        if j in self.serviceProcesses[s]:
+          for i in self.serviceProcesses[s]:
+            if not i == j:
+              if self.machineJobAssignedTo(i) == self.machineJobAssignedTo(j):
+                return [False,i,j]
+      
+      
+      
+      
+      
+    def findBestSwap(self,dont): #find best swap period. If none exists return [-1,-1]
+      best = math.inf
+      a = self.currentAssignment
+      ii = -1
+      jj = -1 
+      for i in range(self.numProcesses):
+        for j in range(i,self.numProcesses):
+          if [i,j] not in dont:
+            self.swapProcesses(i,j)
+            if (self.assignmentCost() < best and self.showInfeasible()[0] <= 2):
+                a = self.currentAssignment
+                ii = i
+                jj = j
+            self.swapProcesses(i,j)    
+      return [ii,jj]      
+
+    def computeLowerBound(self):
+ 
+            m = Model("lowerBound")
+ 
+            x = m.addVars(self.numMachines, self.numProcesses, lb=0.0, ub=1.0, obj=0.0, vtype=GRB.CONTINUOUS, name = "x")
+
+            m.addConstrs((x.sum('*', j) == 1.0 for j in range(self.numProcesses)), "assign")
+
+            m.addConstrs((quicksum(self.requirements[j][r] * x[i,j] 
+                         for j in range(self.numProcesses)) 
+                         <= self.capacities[i][r]
+                             for i in range(self.numMachines) 
+                             for r in range(self.numResources)), "capacity")
+          
+            m.addConstrs((quicksum(x[i,j]
+                        for j in self.serviceProcesses[s])
+                        <= 1
+                          for s in range(self.numServices)
+                          for i in range(self.numMachines)), "conflict")
+          
+            #balance constraint was written in collaboration with Zoe, balance constraint gets more of our sample instances to run 
+            #ASK IF THIS IS OK to credit Zoe
+            balanceVars = m.addVars(self.numBalance, lb=0.0, obj=0.0, vtype=GRB.CONTINUOUS, name="b")           
+            #add into objective
+            for i in range(self.numBalance): balanceVars[i].obj = self.balanceWeight[i]           
+            #add balance constraints
+            m.addConstrs(quicksum(-(self.capacities[i][self.balanceTriple[balance][1]] - quicksum(self.requirements[j][self.balanceTriple[balance][1]] * x[i, j]
+                    for j in range(self.numProcesses))) + self.balanceTriple[balance][2]*(self.capacities[i][self.balanceTriple[balance][0]]- quicksum(self.requirements[k][self.balanceTriple[balance][0]] * x[i, k]
+				    for k in range(self.numProcesses)) <= balanceVars[balance])
+                        for balance in range(self.numBalance))
+				            for i in range(self.numMachines))
+            
+            
+          
+          #y = m.addVars(self.numServices, len(self.Locations), lb=0.0, ub =1.0, obj = 0, vtype=GRB.CONTINUOUS, name = "y")
+          
+          #m.addConstrs((quicksum(y[s,l] 
+          #             for l in range(len(self.locations)))
+          #             >= self.spreadMin[s]
+          #                 for s in range(self.numServices)), "spread constr")
+          
+          #m.addConstrs(quicksum(quicksum
+          
+          #make loadcost var and constraints for it
+            loadCost = m.addVars(self.numMachines, self.numResources, lb = 0.0, obj = 0.0, vtype = GRB.CONTINUOUS, name = "a")
+
+            for i in range(self.numMachines):
+                for r in range(self.numResources):
+                    loadCost[i,r].obj = self.loadCostWeight[r]
+
+            m.addConstrs(loadCost[i,r] >= -self.safetyCapacities[i][r] + quicksum(self.requirements[j][r] * x[i,j] 
+                         for j in range(self.numProcesses))
+                             for i in range(self.numMachines) 
+                             for r in range(self.numResources))    
+
+            m.optimize()
+            return m.objVal
+   
+          
+###############################PART4END################################### 
+###############################PART4END################################### 
 
 def main(argv):
     #a = Assignment()
