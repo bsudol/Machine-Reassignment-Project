@@ -378,24 +378,27 @@ class Assignment:
     def infeasibleSearch(self):
       self.localSearch() #Start with a Local Search to Find the Locally Optimal Solution
       tried = [] #Will Keep a List of Tried Swaps
-      best = self.assignmentCost() #Current Cost of Best Feasible Solution
-      real = self.currentAssignment #Current Best Feasible Solution
-      for i in range(15):
+      for i in range(1):
+        print(i)
         
         a = self.findBestSwap(tried) #Find Best Infeasible Swap of What We Haven't Tried
-        
         if a == [-1,-1]: #If No Swap Gives Better Solution: Break
           break
-          
         tried.append(a) # Add this Swap to the List of Tried Swaps 
+
+        
+        real = self.storeAssign()
+        
+        bestt = self.assignmentCost()
+        
+        reall = real
+        
         
         self.swapProcesses(a[0],a[1]) # Swap the Processes for the Test
         
         count = 0 #Initialize a Counter
         b = self.showInfeasible() # Show Where the Infeasibility Is
-        reall = real
-        bestt = best
-        
+               
         while b[0] > 0 and count < 20: # While This is Still Infeasible and We Haven't Tried More than n Times
           
           count = count + 1
@@ -409,7 +412,7 @@ class Assignment:
                   
                   l = True
                   for r in range(self.numResources): #Loop to check if we fixed the problem
-                    if self.capacities[b[1]][r] < self.resourceUsedOnMachine(i,r,self.currentAssignment):
+                    if self.capacities[b[1]][r] < self.resourceUsedOnMachine(b[1],r,self.currentAssignment):
                       l = False
                       
                   boo = True
@@ -423,12 +426,11 @@ class Assignment:
                   if not f[0]:
                     boo = False
                     
-                  if self.singleFeasibility(j,m) and self.assignmentCost() < best and l and boo: #If the single swap is feasible for capacity and conflict and we lower the assignment cost and our swap fixes the original problem and the whole assignment is still feasible for the rest of the conditions, store the swap
-                    reall = self.currentAssignment #Update Best Feasible Solution and cost
+                  if self.singleFeasibility(j,m) and self.assignmentCost() < bestt and l and boo: #If the single swap is feasible for capacity and conflict and we lower the assignment cost and our swap fixes the original problem and the whole assignment is still feasible for the rest of the conditions, store the swap
+                    reall = self.storeAssign() #Update Best Feasible Solution and cost
                     bestt = self.assignmentCost()
-                    something = True   #mark that something happened
-                  self.moveProcess(j,b[1])
-                  
+                    something = True   #mark that something happened  
+                  self.moveProcess(j,b[1]) #move back to start fresh in new loop
           else: #Infeasibility based on conflict: Try moving each of the conflicting process to any of the other machines
             for m in [x for x in range(self.numMachines) if x != self.machineJobAssignedTo(b[1])]: #Loop over every machine except one currently assigned to
               self.moveProcess(b[1],m)
@@ -443,9 +445,9 @@ class Assignment:
                 boo = False
               if not f[0]:
                 boo = False  
-            
-              if self.singleFeasibility(b[1],m) and self.assignmentCost() < best and boo: #If the single swap is feasible for capacity and conflict and we lower the assignment cost and our swap fixes the original problem and the whole assignment is still feasible for the rest of the conditions, store the swap
-                reall = self.currentAssignment #Update Best Solution and cost
+              
+              if self.singleFeasibility(b[1],m) and self.assignmentCost() < bestt and boo: #If the single swap is feasible for capacity and conflict and we lower the assignment cost and our swap fixes the original problem and the whole assignment is still feasible for the rest of the conditions, store the swap
+                reall = self.storeAssign() #Update Best Solution and cost
                 bestt = self.assignmentCost()
                 something = True   #mark that something happened
               self.moveProcess(b[1],self.machineJobAssignedTo(b[2]))
@@ -465,29 +467,23 @@ class Assignment:
               if not f[0]:
                 boo = False  
             
-              if self.singleFeasibility(b[2],m) and self.assignmentCost() < best and boo: #If the single swap is feasible for capacity and conflict and we lower the assignment cost and our swap fixes the original problem and the whole assignment is still feasible for the rest of the conditions, store the swap
-                reall = self.currentAssignment #Update Best Solution and cost
+              if self.singleFeasibility(b[2],m) and self.assignmentCost() < bestt and boo: #If the single swap is feasible for capacity and conflict and we lower the assignment cost and our swap fixes the original problem and the whole assignment is still feasible for the rest of the conditions, store the swap
+                reall = self.storeAssign() #Update Best Solution and cost
                 bestt = self.assignmentCost()
                 something = True   #mark that something happened
-              self.moveProcess(b[2],self.machineJobAssignedTo(b[1]))
-                               
+              self.moveProcess(b[2],self.machineJobAssignedTo(b[1]))                 
                           
               
           if not something: #If nothing happened that mean that the current problem being worked on can't be fixed and therefore we shouldn't continue
             count = 20
-          
+    
+          self.currentAssignment = reall
           b = self.showInfeasible() #update with the next infeasibility
         ##
-                               
-        self.currentAssignment = reall
-                                                     
-        if self.isFeasible():
-          real = reall
-          best = bestt 
-        else:
-          self.currentAssignment = real                     
-                               
-                               
+        
+        
+        if not self.isFeasible():
+          self.currentAssignment = real 
                                
                                
     def singleFeasibility(self,j,m): #Check to see if a single process and single machine is clear for capacity and conflict
@@ -501,26 +497,31 @@ class Assignment:
           for i in self.serviceProcesses[s]:
             if not i == j:
               if self.machineJobAssignedTo(i) == self.machineJobAssignedTo(j):
-                return [False,i,j]
+                return False
+      
+      return True
       
       
-      
-      
-      
+    def storeAssign(self):
+      v = []
+      for i in range(len(self.currentAssignment)):
+        v.append(self.currentAssignment[i])  
+      return v  
+    
+    
     def findBestSwap(self,dont): #find best swap period. If none exists return [-1,-1]
-      best = math.inf
-      a = self.currentAssignment
+      best = self.assignmentCost()
       ii = -1
       jj = -1 
       for i in range(self.numProcesses):
-        for j in range(i,self.numProcesses):
+        for j in range(i+1,self.numProcesses):
           if [i,j] not in dont:
             self.swapProcesses(i,j)
             if (self.assignmentCost() < best and self.showInfeasible()[0] <= 2):
-                a = self.currentAssignment
                 ii = i
                 jj = j
-            self.swapProcesses(i,j)    
+                best = self.assignmentCost()
+            self.swapProcesses(i,j)      
       return [ii,jj]      
 
     def computeLowerBound(self):
@@ -580,6 +581,7 @@ class Assignment:
 
             m.optimize()
             return m.objVal
+   
    
           
 ###############################PART4END################################### 
